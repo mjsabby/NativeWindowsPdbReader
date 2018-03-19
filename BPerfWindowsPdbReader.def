@@ -1,0 +1,11 @@
+LIBRARY "Microsoft.BPerf.WindowsPdbReader.Native.Dll"
+
+EXPORTS
+    GetPdbSignatureAndAge
+    CreatePdbSymbolReader
+    DeletePdbSymbolReader
+    FindNameForRVA
+    FindLineNumberForIL
+    GetSrcSrvData
+    GetSourceLinkData
+    IsReaderValid
