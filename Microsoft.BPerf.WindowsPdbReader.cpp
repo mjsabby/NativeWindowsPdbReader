@@ -53,7 +53,7 @@ bool GetLineInformation(InputFile &input, const uint32_t methodToken, const uint
         bool found = false;
 
         const auto symbolCount = builder.GetSymbolCount();
-        for (int i = 0; i < symbolCount; ++i)
+        for (unsigned int i = 0; i < symbolCount; ++i)
         {
             auto &s = builder.GetSymbolAt(i);
             if (s.Token == methodToken)
@@ -111,7 +111,7 @@ bool GetLineInformation(InputFile &input, const uint32_t methodToken, const uint
                         }
                     }
 
-                    const auto index = std::distance(block.LineNumbers.begin(), iter) - 1;
+                    const uint32_t index = std::distance(block.LineNumbers.begin(), iter) - 1;
                     if (index == -1)
                     {
                         continue; // not found
@@ -181,13 +181,13 @@ bool CopyOMapData(std::vector<OMap> &copyToBuffer, const PDBFile &pdbFile, const
     const auto omapSize = numBlocks * pdbBlockSize / sizeof(OMap);
     copyToBuffer.reserve(omapSize);
 
-    for (int i = 0; i < numBlocks; ++i)
+    for (uint32_t i = 0; i < numBlocks; ++i)
     {
         auto data = pdbFile.getBlockData(blocks[i], pdbBlockSize);
         if (data)
         {
             auto &d = data.get();
-            for (int j = 0; j < d.size(); j += 8)
+            for (uint32_t j = 0; j < d.size(); j += 8)
             {
                 uint32_t imageRVA;
                 char *p = reinterpret_cast<char *>(&imageRVA);
@@ -227,13 +227,13 @@ bool CopyStreamToBuffer(std::vector<uint8_t> &copyToBuffer, const PDBFile &pdbFi
 
     copyToBuffer.reserve(numBlocks * pdbBlockSize);
 
-    for (int i = 0; i < numBlocks; ++i)
+    for (uint32_t i = 0; i < numBlocks; ++i)
     {
         auto data = pdbFile.getBlockData(blocks[i], pdbBlockSize);
         if (data)
         {
             auto &d = data.get();
-            for (int j = 0; j < d.size(); ++j)
+            for (uint32_t j = 0; j < d.size(); ++j)
             {
                 copyToBuffer.push_back(d[j]);
             }
@@ -244,15 +244,13 @@ bool CopyStreamToBuffer(std::vector<uint8_t> &copyToBuffer, const PDBFile &pdbFi
         }
     }
 
-    copyToBuffer.resize(pdbFile.getStreamByteSize(streamIdx));
-
     return true;
 }
 
 class IPdbSymbolReader
 {
   public:
-    IPdbSymbolReader(const char *pdbFileName, const bool validateIncomingSignatureAndAge, const GUID incomingSignature, const uint32_t incomingAge) : isSrcSrvValid(false), isSourceLinkValid(false), isOmapValid(false), inputFile(std::move(InputFile::open(pdbFileName))), valid(true), rvaMapBuilt(false)
+    IPdbSymbolReader(const char *pdbFileName, const bool validateIncomingSignatureAndAge, const GUID incomingSignature, const uint32_t incomingAge) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(std::move(InputFile::open(pdbFileName))), valid(true), rvaMapBuilt(false)
     {
         if (this->inputFile->isPdb())
         {
@@ -289,12 +287,18 @@ class IPdbSymbolReader
 
                         if (streamName.compare("srcsrv") == 0)
                         {
-                            this->isSrcSrvValid = CopyStreamToBuffer(this->srcsrv, pdbFile, streamIdx);
+                            if (CopyStreamToBuffer(this->srcsrv, pdbFile, streamIdx))
+                            {
+                                this->srcSrvSize = pdbFile.getStreamByteSize(streamIdx);
+                            }
                         }
 
                         if (streamName.compare("sourcelink") == 0)
                         {
-                            this->isSourceLinkValid = CopyStreamToBuffer(this->sourcelink, pdbFile, streamIdx);
+                            if (CopyStreamToBuffer(this->sourcelink, pdbFile, streamIdx))
+                            {
+                                this->sourceLinkSize = pdbFile.getStreamByteSize(streamIdx);
+                            }
                         }
                     }
                 }
@@ -391,10 +395,10 @@ class IPdbSymbolReader
         *out = nullptr;
         *out_size = 0;
 
-        if (this->isSrcSrvValid)
+        if (this->srcSrvSize > 0)
         {
             *out = this->srcsrv.data();
-            *out_size = this->srcsrv.size();
+            *out_size = this->srcSrvSize;
 
             return true;
         }
@@ -407,10 +411,10 @@ class IPdbSymbolReader
         *out = nullptr;
         *out_size = 0;
 
-        if (this->isSourceLinkValid)
+        if (this->sourceLinkSize > 0)
         {
             *out = this->sourcelink.data();
-            *out_size = this->sourcelink.size();
+            *out_size = this->sourceLinkSize;
 
             return true;
         }
@@ -421,10 +425,10 @@ class IPdbSymbolReader
   private:
     DenseMap<uint16_t, std::string> namedStreams;
 
-    bool isSrcSrvValid;
+    uint32_t srcSrvSize;
     std::vector<uint8_t> srcsrv;
 
-    bool isSourceLinkValid;
+    uint32_t sourceLinkSize;
     std::vector<uint8_t> sourcelink;
 
     bool isOmapValid;
@@ -526,7 +530,7 @@ class IPdbSymbolReader
         }
 
         const auto sectionCount = this->sectionVirtualAddresses.size();
-        for (int i = 0; i < sectionCount; ++i)
+        for (uint32_t i = 0; i < sectionCount; ++i)
         {
             const auto index = publicSymbolCount - sectionCount + i;
             const auto virtualAddressInfo = this->sectionVirtualAddresses[i];
