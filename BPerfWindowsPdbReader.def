@@ -6,7 +6,8 @@ EXPORTS
     DeletePdbSymbolReader
     FindNameForRVA
     FindLineNumberForManagedMethod
-	FindLineNumberForNativeMethod
+    FindLineNumberForNativeMethod
+    ValidateSignature
     GetSrcSrvData
     GetSourceLinkData
     IsReaderValid

@@ -250,26 +250,21 @@ bool CopyStreamToBuffer(std::vector<uint8_t> &copyToBuffer, const PDBFile &pdbFi
 class IPdbSymbolReader
 {
   public:
-    IPdbSymbolReader(const char *pdbFileName, const bool validateIncomingSignatureAndAge, const GUID incomingSignature, const uint32_t incomingAge) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(InputFile::open(pdbFileName)), valid(true), rvaMapBuilt(false)
+    IPdbSymbolReader(const char *pdbFileName) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(InputFile::open(pdbFileName)), signature({ 0 }), age(0), valid(true), rvaMapBuilt(false)
     {
         if (this->inputFile && this->inputFile->isPdb())
         {
-            auto &pdbFile = this->inputFile->pdb();
+            auto& pdbFile = this->inputFile->pdb();
 
             if (pdbFile.hasPDBInfoStream() && pdbFile.hasPDBDbiStream() && pdbFile.hasPDBPublicsStream() && pdbFile.hasPDBSymbolStream())
             {
-                auto &pdbInfoStream = cantFail(pdbFile.getPDBInfoStream());
+                auto& pdbInfoStream = cantFail(pdbFile.getPDBInfoStream());
 
-                if (validateIncomingSignatureAndAge)
-                {
-                    if (pdbInfoStream.getGuid() != incomingSignature || pdbInfoStream.getAge() != incomingAge)
-                    {
-                        this->valid = false;
-                    }
-                }
+                this->signature = pdbInfoStream.getGuid();
+                this->age = pdbInfoStream.getAge();
 
                 // setup named streams
-                for (auto &nse : pdbInfoStream.named_streams())
+                for (auto& nse : pdbInfoStream.named_streams())
                 {
                     if (nse.second != kInvalidStreamIndex)
                     {
@@ -326,9 +321,10 @@ class IPdbSymbolReader
 
                             this->sectionVirtualAddresses.push_back(VirtualAddressInfo(0, 0));
 
-                            for (const auto &header : headers)
+                            for (const auto& header : headers)
                             {
-                                this->sectionVirtualAddresses.push_back(VirtualAddressInfo(header.VirtualAddress, header.VirtualSize));
+                                this->sectionVirtualAddresses.push_back(
+                                    VirtualAddressInfo(header.VirtualAddress, header.VirtualSize));
                             }
                         }
                         else
@@ -422,6 +418,11 @@ class IPdbSymbolReader
         return false;
     }
 
+    LLVM_ATTRIBUTE_NOINLINE bool ValidateSignature(const GUID* incomingGuid, const uint32_t incomingAge) const
+    {
+        return *incomingGuid == this->signature && incomingAge == this->age;
+    }
+
   private:
     DenseMap<uint16_t, std::string> namedStreams;
 
@@ -440,6 +441,9 @@ class IPdbSymbolReader
     std::vector<StringRef> addressNames;
 
     Expected<InputFile> inputFile;
+
+    GUID signature;
+    uint32_t age;
 
     bool valid;
     bool rvaMapBuilt;
@@ -564,9 +568,9 @@ extern "C" bool GetPdbSignatureAndAge(const char* pdbFileName, GUID *incomingSig
     return false;
 }
 
-extern "C" IPdbSymbolReader *CreatePdbSymbolReader(const char *pdbFileName, const bool validateSignatureAndAge, const GUID &signature, const uint32_t age)
+extern "C" IPdbSymbolReader *CreatePdbSymbolReader(const char *pdbFileName)
 {
-    return new IPdbSymbolReader(pdbFileName, validateSignatureAndAge, signature, age);
+    return new IPdbSymbolReader(pdbFileName);
 }
 
 extern "C" void DeletePdbSymbolReader(IPdbSymbolReader *reader)
@@ -582,6 +586,16 @@ extern "C" bool IsReaderValid(IPdbSymbolReader *reader)
     if (reader != nullptr)
     {
         return reader->IsValid();
+    }
+
+    return false;
+}
+
+extern "C" bool ValidateSignature(IPdbSymbolReader *reader, const GUID* signature, uint32_t age)
+{
+    if (reader != nullptr && reader->IsValid())
+    {
+        return reader->ValidateSignature(signature, age);
     }
 
     return false;
