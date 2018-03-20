@@ -250,9 +250,9 @@ bool CopyStreamToBuffer(std::vector<uint8_t> &copyToBuffer, const PDBFile &pdbFi
 class IPdbSymbolReader
 {
   public:
-    IPdbSymbolReader(const char *pdbFileName, const bool validateIncomingSignatureAndAge, const GUID incomingSignature, const uint32_t incomingAge) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(std::move(InputFile::open(pdbFileName))), valid(true), rvaMapBuilt(false)
+    IPdbSymbolReader(const char *pdbFileName, const bool validateIncomingSignatureAndAge, const GUID incomingSignature, const uint32_t incomingAge) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(InputFile::open(pdbFileName)), valid(true), rvaMapBuilt(false)
     {
-        if (this->inputFile->isPdb())
+        if (this->inputFile && this->inputFile->isPdb())
         {
             auto &pdbFile = this->inputFile->pdb();
 
@@ -589,7 +589,7 @@ extern "C" bool IsReaderValid(IPdbSymbolReader *reader)
 
 extern "C" bool FindNameForRVA(IPdbSymbolReader *reader, const uint32_t rva, const mallocPtr allocator, char **out, uint32_t *out_size)
 {
-    if (reader != nullptr)
+    if (reader != nullptr && reader->IsValid())
     {
         return reader->FindNameForRVA(rva, allocator, out, out_size);
     }
@@ -597,9 +597,9 @@ extern "C" bool FindNameForRVA(IPdbSymbolReader *reader, const uint32_t rva, con
     return false;
 }
 
-extern "C" bool FindLineNumberForIL(IPdbSymbolReader *reader, const uint32_t methodToken, const uint32_t iloffset, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_ColumnStart, uint16_t *out_ColumnEnd)
+extern "C" bool FindLineNumberForManagedMethod(IPdbSymbolReader *reader, const uint32_t methodToken, const uint32_t iloffset, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_ColumnStart, uint16_t *out_ColumnEnd)
 {
-    if (reader != nullptr)
+    if (reader != nullptr && reader->IsValid())
     {
         return reader->FindLineNumberForIL(methodToken, iloffset, allocator, out, out_size, out_lineStart, out_lineEnd, out_ColumnStart, out_ColumnEnd);
     }
@@ -607,9 +607,14 @@ extern "C" bool FindLineNumberForIL(IPdbSymbolReader *reader, const uint32_t met
     return false;
 }
 
+extern "C" bool FindLineNumberForNativeMethod(IPdbSymbolReader *reader, const uint32_t rva, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_ColumnStart, uint16_t *out_ColumnEnd)
+{
+    return false;
+}
+
 extern "C" bool GetSrcSrvData(IPdbSymbolReader *reader, uint8_t **out, uint32_t *out_size)
 {
-    if (reader != nullptr)
+    if (reader != nullptr && reader->IsValid())
     {
         return reader->GetSrcSrvData(out, out_size);
     }
@@ -619,7 +624,7 @@ extern "C" bool GetSrcSrvData(IPdbSymbolReader *reader, uint8_t **out, uint32_t 
 
 extern "C" bool GetSourceLinkData(IPdbSymbolReader *reader, uint8_t **out, uint32_t *out_size)
 {
-    if (reader != nullptr)
+    if (reader != nullptr && reader->IsValid())
     {
         return reader->GetSourceLinkData(out, out_size);
     }
