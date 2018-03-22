@@ -19,9 +19,9 @@ using namespace llvm;
 using namespace codeview;
 using namespace pdb;
 
-typedef void* (*mallocPtr)(size_t);
+typedef void *(*mallocPtr)(size_t);
 
-bool GetLineInformation(InputFile &input, const uint32_t methodToken, const uint32_t ilOffset, const mallocPtr allocator, char **out, uint32_t* out_size, uint32_t* out_lineStart, uint32_t *out_lineEnd, uint16_t *out_columnStart, uint16_t* out_columnEnd)
+bool GetLineInformation(InputFile &input, const uint32_t methodToken, const uint32_t ilOffset, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_columnStart, uint16_t *out_columnEnd)
 {
     uint32_t lastModi = UINT32_MAX;
     uint32_t lastNameIndex = UINT32_MAX;
@@ -135,7 +135,7 @@ bool GetLineInformation(InputFile &input, const uint32_t methodToken, const uint
                     auto stringRef = sg.getFileNameChecksumsOffset(block.NameIndex);
 
                     const auto size = stringRef.size();
-                    *out = static_cast<char*>(allocator(size));
+                    *out = static_cast<char *>(allocator(size));
                     *out_size = size;
 
                     memcpy(*out, stringRef.data(), size);
@@ -250,21 +250,21 @@ bool CopyStreamToBuffer(std::vector<uint8_t> &copyToBuffer, const PDBFile &pdbFi
 class IPdbSymbolReader
 {
   public:
-    IPdbSymbolReader(const char *pdbFileName) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(InputFile::open(pdbFileName)), signature({ 0 }), age(0), valid(true), rvaMapBuilt(false)
+    IPdbSymbolReader(const char *pdbFileName) : srcSrvSize(0), sourceLinkSize(0), isOmapValid(false), inputFile(InputFile::open(pdbFileName)), signature({0}), age(0), valid(true), rvaMapBuilt(false)
     {
         if (this->inputFile && this->inputFile->isPdb())
         {
-            auto& pdbFile = this->inputFile->pdb();
+            auto &pdbFile = this->inputFile->pdb();
 
             if (pdbFile.hasPDBInfoStream() && pdbFile.hasPDBDbiStream() && pdbFile.hasPDBPublicsStream() && pdbFile.hasPDBSymbolStream())
             {
-                auto& pdbInfoStream = cantFail(pdbFile.getPDBInfoStream());
+                auto &pdbInfoStream = cantFail(pdbFile.getPDBInfoStream());
 
                 this->signature = pdbInfoStream.getGuid();
                 this->age = pdbInfoStream.getAge();
 
                 // setup named streams
-                for (auto& nse : pdbInfoStream.named_streams())
+                for (auto &nse : pdbInfoStream.named_streams())
                 {
                     if (nse.second != kInvalidStreamIndex)
                     {
@@ -321,10 +321,9 @@ class IPdbSymbolReader
 
                             this->sectionVirtualAddresses.push_back(VirtualAddressInfo(0, 0));
 
-                            for (const auto& header : headers)
+                            for (const auto &header : headers)
                             {
-                                this->sectionVirtualAddresses.push_back(
-                                    VirtualAddressInfo(header.VirtualAddress, header.VirtualSize));
+                                this->sectionVirtualAddresses.push_back(VirtualAddressInfo(header.VirtualAddress, header.VirtualSize));
                             }
                         }
                         else
@@ -335,6 +334,23 @@ class IPdbSymbolReader
                     else
                     {
                         this->valid = false;
+                    }
+                }
+                else
+                {
+                    this->sectionVirtualAddresses.push_back(VirtualAddressInfo(0, 0));
+
+                    uint32_t previousSectionVA = 0x0;
+                    uint32_t previousSectionSize = 0x0;
+                    const uint32_t alignment = 0x1000;
+
+                    auto secMapArr = dbi->getSectionMap();
+                    for (const auto &secMapEntry : secMapArr)
+                    {
+                        const auto currentSectionVA = (previousSectionVA + previousSectionSize) - ((previousSectionVA + previousSectionSize) % alignment) + alignment;
+                        this->sectionVirtualAddresses.push_back(VirtualAddressInfo(currentSectionVA, secMapEntry.SecByteLength));
+                        previousSectionVA = currentSectionVA;
+                        previousSectionSize = secMapEntry.SecByteLength;
                     }
                 }
             }
@@ -349,7 +365,7 @@ class IPdbSymbolReader
         }
     }
 
-    LLVM_ATTRIBUTE_NOINLINE bool IsValid() const
+    bool IsValid() const
     {
         return this->valid;
     }
@@ -418,9 +434,10 @@ class IPdbSymbolReader
         return false;
     }
 
-    LLVM_ATTRIBUTE_NOINLINE bool ValidateSignature(const GUID* incomingGuid, const uint32_t incomingAge) const
+    LLVM_ATTRIBUTE_NOINLINE void GetSignature(GUID *incomingGuid, uint32_t *incomingAge) const
     {
-        return *incomingGuid == this->signature && incomingAge == this->age;
+        *incomingGuid = this->signature;
+        *incomingAge = this->age;
     }
 
   private:
@@ -488,7 +505,7 @@ class IPdbSymbolReader
         auto &stringRef = this->addressNames[this->addresses[index].IndexIntoStringTable];
 
         const auto size = stringRef.size();
-        *out = static_cast<char*>(allocator(size));
+        *out = static_cast<char *>(allocator(size));
         *out_size = size;
 
         memcpy(*out, stringRef.data(), size);
@@ -548,7 +565,7 @@ class IPdbSymbolReader
     }
 };
 
-extern "C" bool GetPdbSignatureAndAge(const char* pdbFileName, GUID *incomingSignature, uint32_t *incomingAge)
+extern "C" bool GetPdbSignatureAndAge(const char *pdbFileName, GUID *incomingSignature, uint32_t *incomingAge)
 {
     auto file = InputFile::open(pdbFileName);
     if (file && file->isPdb())
@@ -591,11 +608,12 @@ extern "C" bool IsReaderValid(IPdbSymbolReader *reader)
     return false;
 }
 
-extern "C" bool ValidateSignature(IPdbSymbolReader *reader, const GUID* signature, uint32_t age)
+extern "C" bool GetSignature(IPdbSymbolReader *reader, GUID *signature, uint32_t *age)
 {
     if (reader != nullptr && reader->IsValid())
     {
-        return reader->ValidateSignature(signature, age);
+        reader->GetSignature(signature, age);
+        return true;
     }
 
     return false;
@@ -611,17 +629,17 @@ extern "C" bool FindNameForRVA(IPdbSymbolReader *reader, const uint32_t rva, con
     return false;
 }
 
-extern "C" bool FindLineNumberForManagedMethod(IPdbSymbolReader *reader, const uint32_t methodToken, const uint32_t iloffset, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_ColumnStart, uint16_t *out_ColumnEnd)
+extern "C" bool FindLineNumberForManagedMethod(IPdbSymbolReader *reader, const uint32_t methodToken, const uint32_t iloffset, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_columnStart, uint16_t *out_columnEnd)
 {
     if (reader != nullptr && reader->IsValid())
     {
-        return reader->FindLineNumberForIL(methodToken, iloffset, allocator, out, out_size, out_lineStart, out_lineEnd, out_ColumnStart, out_ColumnEnd);
+        return reader->FindLineNumberForIL(methodToken, iloffset, allocator, out, out_size, out_lineStart, out_lineEnd, out_columnStart, out_columnEnd);
     }
 
     return false;
 }
 
-extern "C" bool FindLineNumberForNativeMethod(IPdbSymbolReader *reader, const uint32_t rva, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_ColumnStart, uint16_t *out_ColumnEnd)
+extern "C" bool FindLineNumberForNativeMethod(IPdbSymbolReader *reader, const uint32_t rva, const mallocPtr allocator, char **out, uint32_t *out_size, uint32_t *out_lineStart, uint32_t *out_lineEnd, uint16_t *out_columnStart, uint16_t *out_columnEnd)
 {
     return false;
 }

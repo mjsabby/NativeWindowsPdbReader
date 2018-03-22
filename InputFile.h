@@ -23,16 +23,20 @@
 #include "llvm/Support/Error.h"
 #include <memory>
 
-namespace llvm {
-namespace codeview {
+namespace llvm
+{
+namespace codeview
+{
 class LazyRandomTypeCollection;
 }
-namespace object {
+namespace object
+{
 class COFFObjectFile;
 class SectionRef;
 } // namespace object
 
-namespace pdb {
+namespace pdb
+{
 class InputFile;
 class LinePrinter;
 class PDBFile;
@@ -40,7 +44,8 @@ class NativeSession;
 class SymbolGroupIterator;
 class SymbolGroup;
 
-class InputFile {
+class InputFile
+{
   InputFile();
 
   std::unique_ptr<NativeSession> PdbSession;
@@ -52,7 +57,11 @@ class InputFile {
   TypeCollectionPtr Types;
   TypeCollectionPtr Ids;
 
-  enum TypeCollectionKind { kTypes, kIds };
+  enum TypeCollectionKind
+  {
+    kTypes,
+    kIds
+  };
   codeview::LazyRandomTypeCollection &
   getOrCreateTypeCollection(TypeCollectionKind Kind);
 
@@ -81,7 +90,8 @@ public:
   bool isObj() const;
 };
 
-class SymbolGroup {
+class SymbolGroup
+{
   friend class SymbolGroupIterator;
 
 public:
@@ -93,7 +103,8 @@ public:
 
   StringRef name() const;
 
-  codeview::DebugSubsectionArray getDebugSubsections() const {
+  codeview::DebugSubsectionArray getDebugSubsections() const
+  {
     return Subsections;
   }
   const ModuleDebugStreamRef &getPdbModuleStream() const;
@@ -117,7 +128,8 @@ private:
 
 class SymbolGroupIterator
     : public iterator_facade_base<SymbolGroupIterator,
-                                  std::forward_iterator_tag, SymbolGroup> {
+                                  std::forward_iterator_tag, SymbolGroup>
+{
 public:
   SymbolGroupIterator();
   explicit SymbolGroupIterator(InputFile &File);

@@ -7,7 +7,7 @@ EXPORTS
     FindNameForRVA
     FindLineNumberForManagedMethod
     FindLineNumberForNativeMethod
-    ValidateSignature
+    GetSignature
     GetSrcSrvData
     GetSourceLinkData
     IsReaderValid

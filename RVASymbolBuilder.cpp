@@ -184,7 +184,6 @@ Error RVASymbolBuilder::visitKnownRecord(CVSymbol &CVR,
 Error RVASymbolBuilder::visitKnownRecord(CVSymbol &CVR,
                                          PublicSym32 &Public)
 {
-
     const auto rva = this->sectionVirtualAddresses[Public.Segment].VirtualAddress + Public.Offset;
     const auto curr = this->currentIndex;
 

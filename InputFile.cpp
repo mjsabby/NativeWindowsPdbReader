@@ -32,7 +32,8 @@ InputFile::InputFile() {}
 InputFile::~InputFile() {}
 
 static Expected<ModuleDebugStreamRef>
-getModuleDebugStream(PDBFile &File, StringRef &ModuleName, uint32_t Index) {
+getModuleDebugStream(PDBFile &File, StringRef &ModuleName, uint32_t Index)
+{
   ExitOnError Err("Unexpected error: ");
 
   auto &Dbi = Err(File.getPDBDbiStream());
@@ -58,7 +59,8 @@ getModuleDebugStream(PDBFile &File, StringRef &ModuleName, uint32_t Index) {
 
 static inline bool isCodeViewDebugSubsection(object::SectionRef Section,
                                              StringRef Name,
-                                             BinaryStreamReader &Reader) {
+                                             BinaryStreamReader &Reader)
+{
   StringRef SectionName, Contents;
   if (Section.getName(SectionName))
     return false;
@@ -80,7 +82,8 @@ static inline bool isCodeViewDebugSubsection(object::SectionRef Section,
 }
 
 static inline bool isDebugSSection(object::SectionRef Section,
-                                   DebugSubsectionArray &Subsections) {
+                                   DebugSubsectionArray &Subsections)
+{
   BinaryStreamReader Reader;
   if (!isCodeViewDebugSubsection(Section, ".debug$S", Reader))
     return false;
@@ -89,7 +92,8 @@ static inline bool isDebugSSection(object::SectionRef Section,
   return true;
 }
 
-static bool isDebugTSection(SectionRef Section, CVTypeArray &Types) {
+static bool isDebugTSection(SectionRef Section, CVTypeArray &Types)
+{
   BinaryStreamReader Reader;
   if (!isCodeViewDebugSubsection(Section, ".debug$T", Reader))
     return false;
@@ -97,20 +101,24 @@ static bool isDebugTSection(SectionRef Section, CVTypeArray &Types) {
   return true;
 }
 
-static const DebugStringTableSubsectionRef &extractStringTable(PDBFile &File) {
+static const DebugStringTableSubsectionRef &extractStringTable(PDBFile &File)
+{
   return cantFail(File.getStringTable()).getStringTable();
 }
 
-SymbolGroup::SymbolGroup(InputFile *File, uint32_t GroupIndex) : File(File) {
+SymbolGroup::SymbolGroup(InputFile *File, uint32_t GroupIndex) : File(File)
+{
   if (!File)
     return;
 
   if (File->isPdb())
     initializeForPdb(GroupIndex);
-  else {
+  else
+  {
     Name = ".debug$S";
     uint32_t I = 0;
-    for (const auto &S : File->obj().sections()) {
+    for (const auto &S : File->obj().sections())
+    {
       DebugSubsectionArray SS;
       if (!isDebugSSection(S, SS))
         continue;
@@ -130,13 +138,15 @@ SymbolGroup::SymbolGroup(InputFile *File, uint32_t GroupIndex) : File(File) {
 
 StringRef SymbolGroup::name() const { return Name; }
 
-void SymbolGroup::updateDebugS(const codeview::DebugSubsectionArray &SS) {
+void SymbolGroup::updateDebugS(const codeview::DebugSubsectionArray &SS)
+{
   Subsections = SS;
 }
 
 void SymbolGroup::updatePdbModi(uint32_t Modi) { initializeForPdb(Modi); }
 
-void SymbolGroup::initializeForPdb(uint32_t Modi) {
+void SymbolGroup::initializeForPdb(uint32_t Modi)
+{
   assert(File && File->isPdb());
 
   // PDB always uses the same string table, but each module has its own
@@ -146,7 +156,8 @@ void SymbolGroup::initializeForPdb(uint32_t Modi) {
 
   SC.resetChecksums();
   auto MDS = getModuleDebugStream(File->pdb(), Name, Modi);
-  if (!MDS) {
+  if (!MDS)
+  {
     consumeError(MDS.takeError());
     return;
   }
@@ -157,11 +168,13 @@ void SymbolGroup::initializeForPdb(uint32_t Modi) {
   rebuildChecksumMap();
 }
 
-void SymbolGroup::rebuildChecksumMap() {
+void SymbolGroup::rebuildChecksumMap()
+{
   if (!SC.hasChecksums())
     return;
 
-  for (const auto &Entry : SC.checksums()) {
+  for (const auto &Entry : SC.checksums())
+  {
     auto S = SC.strings().getString(Entry.FileNameOffset);
     if (!S)
       continue;
@@ -169,38 +182,44 @@ void SymbolGroup::rebuildChecksumMap() {
   }
 }
 
-StringRef SymbolGroup::getFileNameChecksumsOffset(const uint32_t Offset) const {
+StringRef SymbolGroup::getFileNameChecksumsOffset(const uint32_t Offset) const
+{
 
-    if (!SC.hasChecksums()) {
-        return std::string("");
-    }
+  if (!SC.hasChecksums())
+  {
+    return std::string("");
+  }
 
-    auto Iter = SC.checksums().getArray().at(Offset);
-    if (Iter == SC.checksums().getArray().end()) {
-        return std::string("");
-    }
+  auto Iter = SC.checksums().getArray().at(Offset);
+  if (Iter == SC.checksums().getArray().end())
+  {
+    return std::string("");
+  }
 
-    uint32_t FO = Iter->FileNameOffset;
-    auto ExpectedFile = getNameFromStringTable(FO);
-    if (!ExpectedFile) {
-        consumeError(ExpectedFile.takeError());
-        return std::string("");
-    }
+  uint32_t FO = Iter->FileNameOffset;
+  auto ExpectedFile = getNameFromStringTable(FO);
+  if (!ExpectedFile)
+  {
+    consumeError(ExpectedFile.takeError());
+    return std::string("");
+  }
 
-    return ExpectedFile.get();
+  return ExpectedFile.get();
 }
 
-
-const ModuleDebugStreamRef &SymbolGroup::getPdbModuleStream() const {
+const ModuleDebugStreamRef &SymbolGroup::getPdbModuleStream() const
+{
   assert(File && File->isPdb() && DebugStream);
   return *DebugStream;
 }
 
-Expected<StringRef> SymbolGroup::getNameFromStringTable(uint32_t Offset) const {
+Expected<StringRef> SymbolGroup::getNameFromStringTable(uint32_t Offset) const
+{
   return SC.strings().getString(Offset);
 }
 
-Expected<InputFile> InputFile::open(StringRef Path) {
+Expected<InputFile> InputFile::open(StringRef Path)
+{
   InputFile IF;
   if (!llvm::sys::fs::exists(Path))
     return make_error<StringError>(formatv("File {0} not found", Path),
@@ -211,7 +230,8 @@ Expected<InputFile> InputFile::open(StringRef Path) {
     return make_error<StringError>(
         formatv("Unable to identify file type for file {0}", Path), EC);
 
-  if (Magic == file_magic::coff_object) {
+  if (Magic == file_magic::coff_object)
+  {
     Expected<OwningBinary<Binary>> BinaryOrErr = createBinary(Path);
     if (!BinaryOrErr)
       return BinaryOrErr.takeError();
@@ -221,7 +241,8 @@ Expected<InputFile> InputFile::open(StringRef Path) {
     return std::move(IF);
   }
 
-  if (Magic == file_magic::unknown) {
+  if (Magic == file_magic::unknown)
+  {
     std::unique_ptr<IPDBSession> Session;
     if (auto Err = loadDataForPDB(PDB_ReaderType::Native, Path, Session))
       return std::move(Err);
@@ -237,31 +258,37 @@ Expected<InputFile> InputFile::open(StringRef Path) {
       inconvertibleErrorCode());
 }
 
-PDBFile &InputFile::pdb() {
+PDBFile &InputFile::pdb()
+{
   assert(isPdb());
   return *PdbOrObj.get<PDBFile *>();
 }
 
-const PDBFile &InputFile::pdb() const {
+const PDBFile &InputFile::pdb() const
+{
   assert(isPdb());
   return *PdbOrObj.get<PDBFile *>();
 }
 
-object::COFFObjectFile &InputFile::obj() {
+object::COFFObjectFile &InputFile::obj()
+{
   assert(isObj());
   return *PdbOrObj.get<object::COFFObjectFile *>();
 }
 
-const object::COFFObjectFile &InputFile::obj() const {
+const object::COFFObjectFile &InputFile::obj() const
+{
   assert(isObj());
   return *PdbOrObj.get<object::COFFObjectFile *>();
 }
 
-bool InputFile::hasTypes() const {
+bool InputFile::hasTypes() const
+{
   if (isPdb())
     return pdb().hasPDBTpiStream();
 
-  for (const auto &Section : obj().sections()) {
+  for (const auto &Section : obj().sections())
+  {
     CVTypeArray Types;
     if (isDebugTSection(Section, Types))
       return true;
@@ -269,7 +296,8 @@ bool InputFile::hasTypes() const {
   return false;
 }
 
-bool InputFile::hasIds() const {
+bool InputFile::hasIds() const
+{
   if (isObj())
     return false;
   return pdb().hasPDBIpiStream();
@@ -277,24 +305,28 @@ bool InputFile::hasIds() const {
 
 bool InputFile::isPdb() const { return PdbOrObj.is<PDBFile *>(); }
 
-bool InputFile::isObj() const {
+bool InputFile::isObj() const
+{
   return PdbOrObj.is<object::COFFObjectFile *>();
 }
 
 codeview::LazyRandomTypeCollection &
-InputFile::getOrCreateTypeCollection(TypeCollectionKind Kind) {
+InputFile::getOrCreateTypeCollection(TypeCollectionKind Kind)
+{
   if (Types && Kind == kTypes)
     return *Types;
   if (Ids && Kind == kIds)
     return *Ids;
 
-  if (Kind == kIds) {
+  if (Kind == kIds)
+  {
     assert(isPdb() && pdb().hasPDBIpiStream());
   }
 
   // If the collection was already initialized, we should have just returned it
   // in step 1.
-  if (isPdb()) {
+  if (isPdb())
+  {
     TypeCollectionPtr &Collection = (Kind == kIds) ? Ids : Types;
     auto &Stream = cantFail((Kind == kIds) ? pdb().getPDBIpiStream()
                                            : pdb().getPDBTpiStream());
@@ -311,7 +343,8 @@ InputFile::getOrCreateTypeCollection(TypeCollectionKind Kind) {
   assert(Kind == kTypes);
   assert(!Types);
 
-  for (const auto &Section : obj().sections()) {
+  for (const auto &Section : obj().sections())
+  {
     CVTypeArray Records;
     if (!isDebugTSection(Section, Records))
       continue;
@@ -324,11 +357,13 @@ InputFile::getOrCreateTypeCollection(TypeCollectionKind Kind) {
   return *Types;
 }
 
-codeview::LazyRandomTypeCollection &InputFile::types() {
+codeview::LazyRandomTypeCollection &InputFile::types()
+{
   return getOrCreateTypeCollection(kTypes);
 }
 
-codeview::LazyRandomTypeCollection &InputFile::ids() {
+codeview::LazyRandomTypeCollection &InputFile::ids()
+{
   // Object files have only one type stream that contains both types and ids.
   // Similarly, some PDBs don't contain an IPI stream, and for those both types
   // and IDs are in the same stream.
@@ -338,29 +373,35 @@ codeview::LazyRandomTypeCollection &InputFile::ids() {
   return getOrCreateTypeCollection(kIds);
 }
 
-iterator_range<SymbolGroupIterator> InputFile::symbol_groups() {
+iterator_range<SymbolGroupIterator> InputFile::symbol_groups()
+{
   return make_range<SymbolGroupIterator>(symbol_groups_begin(),
                                          symbol_groups_end());
 }
 
-SymbolGroupIterator InputFile::symbol_groups_begin() {
+SymbolGroupIterator InputFile::symbol_groups_begin()
+{
   return SymbolGroupIterator(*this);
 }
 
-SymbolGroupIterator InputFile::symbol_groups_end() {
+SymbolGroupIterator InputFile::symbol_groups_end()
+{
   return SymbolGroupIterator();
 }
 
 SymbolGroupIterator::SymbolGroupIterator() : Value(nullptr) {}
 
-SymbolGroupIterator::SymbolGroupIterator(InputFile &File) : Value(&File) {
-  if (File.isObj()) {
+SymbolGroupIterator::SymbolGroupIterator(InputFile &File) : Value(&File)
+{
+  if (File.isObj())
+  {
     SectionIter = File.obj().section_begin();
     scanToNextDebugS();
   }
 }
 
-bool SymbolGroupIterator::operator==(const SymbolGroupIterator &R) const {
+bool SymbolGroupIterator::operator==(const SymbolGroupIterator &R) const
+{
   bool E = isEnd();
   bool RE = R.isEnd();
   if (E || RE)
@@ -371,22 +412,26 @@ bool SymbolGroupIterator::operator==(const SymbolGroupIterator &R) const {
   return Index == R.Index;
 }
 
-const SymbolGroup &SymbolGroupIterator::operator*() const {
+const SymbolGroup &SymbolGroupIterator::operator*() const
+{
   assert(!isEnd());
   return Value;
 }
-SymbolGroup &SymbolGroupIterator::operator*() {
+SymbolGroup &SymbolGroupIterator::operator*()
+{
   assert(!isEnd());
   return Value;
 }
 
-SymbolGroupIterator &SymbolGroupIterator::operator++() {
+SymbolGroupIterator &SymbolGroupIterator::operator++()
+{
   assert(Value.File && !isEnd());
   ++Index;
   if (isEnd())
     return *this;
 
-  if (Value.File->isPdb()) {
+  if (Value.File->isPdb())
+  {
     Value.updatePdbModi(Index);
     return *this;
   }
@@ -395,13 +440,15 @@ SymbolGroupIterator &SymbolGroupIterator::operator++() {
   return *this;
 }
 
-void SymbolGroupIterator::scanToNextDebugS() {
+void SymbolGroupIterator::scanToNextDebugS()
+{
   assert(SectionIter.hasValue());
   auto End = Value.File->obj().section_end();
   auto &Iter = *SectionIter;
   assert(!isEnd());
 
-  while (++Iter != End) {
+  while (++Iter != End)
+  {
     DebugSubsectionArray SS;
     SectionRef SR = *Iter;
     if (!isDebugSSection(SR, SS))
@@ -412,10 +459,12 @@ void SymbolGroupIterator::scanToNextDebugS() {
   }
 }
 
-bool SymbolGroupIterator::isEnd() const {
+bool SymbolGroupIterator::isEnd() const
+{
   if (!Value.File)
     return true;
-  if (Value.File->isPdb()) {
+  if (Value.File->isPdb())
+  {
     auto &Dbi = cantFail(Value.File->pdb().getPDBDbiStream());
     uint32_t Count = Dbi.modules().getModuleCount();
     assert(Index <= Count);
